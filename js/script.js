@@ -1,4 +1,4 @@
-// js/script.js - Sistema principal com navegação funcional ATUALIZADO E CORRIGIDO
+// js/script.js - Sistema principal com navegação funcional (VERSÃO CORRIGIDA - SEM CONFLITO COM RELATÓRIOS)
 
 document.addEventListener('DOMContentLoaded', function() {
     // Elementos DOM
@@ -8,10 +8,11 @@ document.addEventListener('DOMContentLoaded', function() {
     const mainNav = document.querySelector('.main-nav');
     const formGlicemia = document.getElementById('form-glicemia');
     const formMeta = document.getElementById('form-meta');
-    const formRelatorio = document.getElementById('form-relatorio');
     const btnTestarAlerta = document.getElementById('testar-alerta');
     const btnLimparFiltro = document.getElementById('limpar-filtro');
-    const btnBaixarPDF = document.getElementById('baixar-relatorio-pdf');
+    
+    // NÃO declarar formRelatorio e btnBaixarPDF aqui para evitar conflito
+    // Eles serão gerenciados exclusivamente pelo relatorios.js
     
     // Dados da aplicação
     window.dados = {
@@ -62,10 +63,7 @@ document.addEventListener('DOMContentLoaded', function() {
                 }
                 
                 // Rolar para o topo suavemente
-                window.scrollTo({
-                    top: 0,
-                    behavior: 'smooth'
-                });
+                window.scrollTo({ top: 0, behavior: 'smooth' });
             });
         });
         
@@ -75,12 +73,10 @@ document.addEventListener('DOMContentLoaded', function() {
                 e.preventDefault();
                 const secaoAlvo = this.getAttribute('data-section');
                 
-                // Atualizar menu ativo
                 linksMenu.forEach(l => l.classList.remove('active'));
                 const linkAtivo = document.querySelector(`.nav-link[data-section="${secaoAlvo}"]`);
                 if (linkAtivo) linkAtivo.classList.add('active');
                 
-                // Mostrar seção
                 mostrarSecao(secaoAlvo);
             });
         });
@@ -116,6 +112,8 @@ document.addEventListener('DOMContentLoaded', function() {
                 setTimeout(() => {
                     if (window.relatoriosSistema && typeof window.relatoriosSistema.inicializar === 'function') {
                         window.relatoriosSistema.inicializar();
+                    } else if (window.relatorioSys && typeof window.relatorioSys.inicializar === 'function') {
+                        window.relatorioSys.inicializar();
                     }
                 }, 300);
             }
@@ -130,11 +128,10 @@ document.addEventListener('DOMContentLoaded', function() {
         }
     }
     
-    // ===== FORMULÁRIOS =====
+    // ===== FORMULÁRIOS (exceto relatório que é gerenciado pelo relatorios.js) =====
     function inicializarFormularios() {
-        // Formulário de glicemia - CORRIGIDO
+        // Formulário de glicemia
         if (formGlicemia) {
-            // Configurar data e hora atuais
             const hoje = new Date();
             document.getElementById('data').value = hoje.toISOString().split('T')[0];
             document.getElementById('hora').value = hoje.toTimeString().substring(0, 5);
@@ -147,23 +144,16 @@ document.addEventListener('DOMContentLoaded', function() {
                 const hora = document.getElementById('hora').value;
                 const observacao = document.getElementById('observacao').value;
                 
-                // Validar
                 if (!glicemia || glicemia < 20 || glicemia > 600) {
-                    mostrarNotificacaoComStatus('Valor de glicemia inválido (20-600 mg/dL)', 'erro');
+                    mostrarNotificacao('Valor de glicemia inválido (20-600 mg/dL)', 'erro');
                     return;
                 }
                 
-                if (!data) {
-                    mostrarNotificacaoComStatus('Selecione uma data', 'erro');
+                if (!data || !hora) {
+                    mostrarNotificacao('Preencha data e hora', 'erro');
                     return;
                 }
                 
-                if (!hora) {
-                    mostrarNotificacaoComStatus('Selecione uma hora', 'erro');
-                    return;
-                }
-                
-                // Determinar status da glicemia
                 let status = '';
                 let statusClass = '';
                 if (glicemia < 70) {
@@ -199,18 +189,15 @@ document.addEventListener('DOMContentLoaded', function() {
                     atualizarGrafico();
                 }
                 
-                // Limpar formulário (exceto data/hora)
                 document.getElementById('glicemia').value = '';
                 document.getElementById('observacao').value = '';
                 
-                // Mostrar notificação com status
-                mostrarNotificacaoComStatus(`Glicemia registrada: ${glicemia} mg/dL`, 'sucesso', status);
+                mostrarNotificacao(`Glicemia registrada: ${glicemia} mg/dL`, 'sucesso');
             });
         }
         
         // Formulário de metas
         if (formMeta) {
-            // Configurar data mínima como hoje
             const hoje = new Date().toISOString().split('T')[0];
             document.getElementById('data-meta').min = hoje;
             
@@ -246,43 +233,6 @@ document.addEventListener('DOMContentLoaded', function() {
             });
         }
         
-        // Formulário de relatório - CORRIGIDO
-        if (formRelatorio) {
-            // Configurar datas padrão (últimos 30 dias)
-            const fim = new Date();
-            const inicio = new Date();
-            inicio.setDate(inicio.getDate() - 30);
-            
-            document.getElementById('relatorio-periodo-inicio').value = inicio.toISOString().split('T')[0];
-            document.getElementById('relatorio-periodo-fim').value = fim.toISOString().split('T')[0];
-            
-            formRelatorio.addEventListener('submit', function(e) {
-                e.preventDefault();
-                
-                const inicio = document.getElementById('relatorio-periodo-inicio').value;
-                const fim = document.getElementById('relatorio-periodo-fim').value;
-                const tipo = document.getElementById('tipo-relatorio').value;
-                
-                if (!inicio || !fim) {
-                    mostrarNotificacao('Preencha as datas do relatório', 'erro');
-                    return;
-                }
-                
-                if (new Date(inicio) > new Date(fim)) {
-                    mostrarNotificacao('Data inicial maior que data final', 'erro');
-                    return;
-                }
-                
-                // Usar o sistema de relatórios atualizado se disponível
-                if (window.relatoriosSistema && typeof window.relatoriosSistema.gerarRelatorio === 'function') {
-                    window.relatoriosSistema.gerarRelatorio();
-                } else {
-                    // Fallback: usar sistema antigo
-                    gerarRelatorio(inicio, fim, tipo);
-                }
-            });
-        }
-        
         // Botão de testar alerta
         if (btnTestarAlerta) {
             btnTestarAlerta.addEventListener('click', function() {
@@ -308,31 +258,6 @@ document.addEventListener('DOMContentLoaded', function() {
             });
         }
         
-        // Botão baixar PDF - CORRIGIDO
-        if (btnBaixarPDF) {
-            btnBaixarPDF.addEventListener('click', function() {
-                if (window.relatoriosSistema && typeof window.relatoriosSistema.baixarPDF === 'function') {
-                    window.relatoriosSistema.baixarPDF();
-                } else {
-                    mostrarNotificacao('Gere um relatório primeiro', 'erro');
-                }
-            });
-        }
-        
-        // Períodos rápidos nos relatórios
-        document.querySelectorAll('.periodo-btn').forEach(btn => {
-            btn.addEventListener('click', function() {
-                const dias = parseInt(this.getAttribute('data-dias'));
-                setPeriodoRelatorio(dias);
-                
-                // Atualizar botões ativos
-                document.querySelectorAll('.periodo-btn').forEach(b => b.classList.remove('active'));
-                this.classList.add('active');
-                
-                mostrarNotificacao(`Período configurado para ${dias} dias`, 'info');
-            });
-        });
-        
         // Filtro de data no histórico
         const filtroData = document.getElementById('filtro-data');
         if (filtroData) {
@@ -348,15 +273,16 @@ document.addEventListener('DOMContentLoaded', function() {
                 atualizarHistorico();
             });
         }
+        
+        // NOTA: O formulário de relatório e botão de PDF NÃO são configurados aqui
+        // para evitar conflito com o relatorios.js
     }
     
     // ===== INICIALIZAÇÃO DE DADOS =====
     function inicializarDados() {
-        // Carregar dados iniciais
         atualizarHistorico();
         atualizarMetas();
         
-        // Inicializar gráfico se a seção estiver ativa
         if (document.getElementById('grafico')?.classList.contains('ativa')) {
             setTimeout(() => {
                 if (window.graficosSistema && typeof window.graficosSistema.inicializar === 'function') {
@@ -365,23 +291,8 @@ document.addEventListener('DOMContentLoaded', function() {
             }, 500);
         }
         
-        // Adicionar dados demo se estiver vazio
         if (window.dados.glicemias.length === 0) {
             adicionarDadosDemo();
-        }
-    }
-    
-    function setPeriodoRelatorio(dias) {
-        const fim = new Date();
-        const inicio = new Date();
-        inicio.setDate(inicio.getDate() - dias);
-        
-        const inicioInput = document.getElementById('relatorio-periodo-inicio');
-        const fimInput = document.getElementById('relatorio-periodo-fim');
-        
-        if (inicioInput && fimInput) {
-            inicioInput.value = inicio.toISOString().split('T')[0];
-            fimInput.value = fim.toISOString().split('T')[0];
         }
     }
     
@@ -400,7 +311,6 @@ document.addEventListener('DOMContentLoaded', function() {
         
         let glicemiasFiltradas = [...window.dados.glicemias];
         
-        // Aplicar filtros
         const filtroData = document.getElementById('filtro-data');
         const filtroStatus = document.getElementById('filtro-status');
         
@@ -409,12 +319,9 @@ document.addEventListener('DOMContentLoaded', function() {
         }
         
         if (filtroStatus && filtroStatus.value !== 'todos') {
-            glicemiasFiltradas = glicemiasFiltradas.filter(g => {
-                return g.statusClass === filtroStatus.value;
-            });
+            glicemiasFiltradas = glicemiasFiltradas.filter(g => g.statusClass === filtroStatus.value);
         }
         
-        // Ordenar do mais recente para o mais antigo
         glicemiasFiltradas.sort((a, b) => b.timestamp - a.timestamp);
         
         if (glicemiasFiltradas.length === 0) {
@@ -422,7 +329,6 @@ document.addEventListener('DOMContentLoaded', function() {
                 <div class="sem-dados">
                     <i class="fas fa-clipboard-list"></i>
                     <p>Nenhum registro encontrado</p>
-                    ${filtroData.value || filtroStatus.value !== 'todos' ? '<p>Tente ajustar os filtros</p>' : ''}
                 </div>
             `;
             return;
@@ -446,11 +352,9 @@ document.addEventListener('DOMContentLoaded', function() {
                     <i class="fas fa-trash"></i>
                 </button>
             `;
-            
             listaHistorico.appendChild(item);
         });
         
-        // Adicionar eventos aos botões de excluir
         document.querySelectorAll('.btn-excluir').forEach(btn => {
             btn.addEventListener('click', function() {
                 const id = parseInt(this.getAttribute('data-id'));
@@ -471,7 +375,6 @@ document.addEventListener('DOMContentLoaded', function() {
         const metasPendentes = window.dados.metas.filter(m => !m.concluida);
         const metasConcluidas = window.dados.metas.filter(m => m.concluida);
         
-        // Metas pendentes
         if (metasPendentes.length === 0) {
             listaPendentes.innerHTML = '<p class="sem-dados">Nenhuma meta pendente</p>';
         } else {
@@ -486,19 +389,14 @@ document.addEventListener('DOMContentLoaded', function() {
                         </div>
                     </div>
                     <div class="meta-acoes">
-                        <button class="btn-concluir" data-id="${meta.id}" title="Concluir">
-                            <i class="fas fa-check"></i>
-                        </button>
-                        <button class="btn-excluir" data-id="${meta.id}" title="Excluir">
-                            <i class="fas fa-trash"></i>
-                        </button>
+                        <button class="btn-concluir" data-id="${meta.id}" title="Concluir"><i class="fas fa-check"></i></button>
+                        <button class="btn-excluir" data-id="${meta.id}" title="Excluir"><i class="fas fa-trash"></i></button>
                     </div>
                 `;
                 listaPendentes.appendChild(li);
             });
         }
         
-        // Metas concluídas
         if (metasConcluidas.length === 0) {
             listaConcluidas.innerHTML = '<p class="sem-dados">Nenhuma meta concluída</p>';
         } else {
@@ -513,15 +411,12 @@ document.addEventListener('DOMContentLoaded', function() {
                             ${meta.dataLimite ? `<span class="meta-data"><i class="fas fa-calendar"></i> ${formatarData(meta.dataLimite)}</span>` : ''}
                         </div>
                     </div>
-                    <button class="btn-excluir" data-id="${meta.id}" title="Excluir">
-                        <i class="fas fa-trash"></i>
-                    </button>
+                    <button class="btn-excluir" data-id="${meta.id}" title="Excluir"><i class="fas fa-trash"></i></button>
                 `;
                 listaConcluidas.appendChild(li);
             });
         }
         
-        // Adicionar eventos
         document.querySelectorAll('.btn-concluir').forEach(btn => {
             btn.addEventListener('click', function() {
                 const id = parseInt(this.getAttribute('data-id'));
@@ -559,9 +454,7 @@ document.addEventListener('DOMContentLoaded', function() {
             window.dados.glicemias = window.dados.glicemias.filter(g => g.id !== id);
             salvarDados();
             atualizarHistorico();
-            if (window.atualizarGrafico) {
-                atualizarGrafico();
-            }
+            if (window.atualizarGrafico) atualizarGrafico();
             mostrarNotificacao('Registro excluído com sucesso', 'sucesso');
         }
     }
@@ -590,195 +483,30 @@ document.addEventListener('DOMContentLoaded', function() {
     function mostrarNotificacao(mensagem, tipo) {
         const notificacao = document.createElement('div');
         notificacao.className = `notificacao notificacao-${tipo}`;
-        
-        let icone = 'info-circle';
-        let titulo = 'Informação';
-        
-        if (tipo === 'sucesso') {
-            icone = 'check-circle';
-            titulo = 'Sucesso';
-        } else if (tipo === 'erro') {
-            icone = 'exclamation-circle';
-            titulo = 'Erro';
-        }
-        
-        notificacao.innerHTML = `
-            <div class="notificacao-conteudo">
-                <i class="fas fa-${icone}"></i>
-                <div>
-                    <strong>${titulo}</strong>
-                    <p>${mensagem}</p>
-                </div>
-            </div>
+        notificacao.style.cssText = `
+            position: fixed;
+            bottom: 20px;
+            right: 20px;
+            background: ${tipo === 'sucesso' ? '#2ecc71' : tipo === 'erro' ? '#e74c3c' : '#3498db'};
+            color: white;
+            padding: 12px 24px;
+            border-radius: 8px;
+            z-index: 10000;
+            animation: slideIn 0.3s ease;
         `;
-        
+        notificacao.innerHTML = `<i class="fas fa-${tipo === 'sucesso' ? 'check-circle' : tipo === 'erro' ? 'exclamation-circle' : 'info-circle'}"></i> ${mensagem}`;
         document.body.appendChild(notificacao);
         
         setTimeout(() => {
-            notificacao.classList.add('fade-out');
-            setTimeout(() => {
-                if (notificacao.parentNode) {
-                    notificacao.parentNode.removeChild(notificacao);
-                }
-            }, 300);
+            notificacao.style.animation = 'slideOut 0.3s ease';
+            setTimeout(() => notificacao.remove(), 300);
         }, 3000);
-    }
-    
-    function mostrarNotificacaoComStatus(mensagem, tipo, status = '') {
-        const notificacao = document.createElement('div');
-        notificacao.className = `notificacao notificacao-${tipo}`;
-        
-        let icone = 'info-circle';
-        let titulo = 'Informação';
-        
-        if (tipo === 'sucesso') {
-            icone = 'check-circle';
-            titulo = 'Registro Concluído';
-        } else if (tipo === 'erro') {
-            icone = 'exclamation-circle';
-            titulo = 'Erro no Registro';
-        }
-        
-        let statusHTML = '';
-        if (status) {
-            let statusClass = status.toLowerCase().replace(' ', '-');
-            if (statusClass === 'muito alta') statusClass = 'muito-alta';
-            statusHTML = `<div class="status-notificacao ${statusClass}"><i class="fas fa-info-circle"></i> Status: ${status}</div>`;
-        }
-        
-        notificacao.innerHTML = `
-            <div class="notificacao-conteudo">
-                <i class="fas fa-${icone}"></i>
-                <div>
-                    <strong>${titulo}</strong>
-                    <p>${mensagem}</p>
-                    ${statusHTML}
-                </div>
-            </div>
-        `;
-        
-        document.body.appendChild(notificacao);
-        
-        setTimeout(() => {
-            notificacao.classList.add('fade-out');
-            setTimeout(() => {
-                if (notificacao.parentNode) {
-                    notificacao.parentNode.removeChild(notificacao);
-                }
-            }, 300);
-        }, 3000);
-    }
-    
-    // ===== RELATÓRIOS =====
-    function gerarRelatorio(inicio, fim, tipo) {
-        const previa = document.getElementById('previa-relatorio');
-        if (!previa) return;
-        
-        const glicemiasPeriodo = obterGlicemiasPeriodo(inicio, fim);
-        
-        if (glicemiasPeriodo.length === 0) {
-            previa.innerHTML = `
-                <div class="sem-dados">
-                    <i class="fas fa-file-pdf"></i>
-                    <p>Nenhum dado no período selecionado</p>
-                    <p><small>${formatarData(inicio)} a ${formatarData(fim)}</small></p>
-                </div>
-            `;
-            mostrarNotificacao('Nenhum registro encontrado no período', 'erro');
-            return;
-        }
-        
-        // Fallback básico para relatório
-        const estatisticas = calcularEstatisticas(glicemiasPeriodo);
-        let conteudo = `
-            <div class="relatorio-cabecalho">
-                <h3><i class="fas fa-file-pdf"></i> Relatório de Monitoramento</h3>
-                <p>Período: ${formatarData(inicio)} a ${formatarData(fim)}</p>
-                <p>Tipo: ${tipo === 'completo' ? 'Completo' : tipo === 'glicemia' ? 'Apenas Glicemia' : 'Simples'}</p>
-            </div>
-            
-            <div class="relatorio-resumo">
-                <h4><i class="fas fa-chart-bar"></i> Resumo Estatístico</h4>
-                <div class="estatisticas">
-                    <div class="estatistica">
-                        <span class="valor">${estatisticas.media.toFixed(1)}</span>
-                        <span class="label">Média</span>
-                    </div>
-                    <div class="estatistica">
-                        <span class="valor">${estatisticas.minima}</span>
-                        <span class="label">Mínima</span>
-                    </div>
-                    <div class="estatistica">
-                        <span class="valor">${estatisticas.maxima}</span>
-                        <span class="label">Máxima</span>
-                    </div>
-                    <div class="estatistica">
-                        <span class="valor">${estatisticas.percentualNormais}%</span>
-                        <span class="label">No Alvo</span>
-                    </div>
-                </div>
-            </div>
-            
-            <div class="relatorio-botoes">
-                <p>Para gerar um relatório completo com gráficos e baixar em PDF, use o sistema avançado de relatórios.</p>
-                <button id="habilitar-relatorios" class="btn btn-primary">
-                    <i class="fas fa-rocket"></i> Usar Sistema Avançado
-                </button>
-            </div>
-        `;
-        
-        previa.innerHTML = conteudo;
-        
-        // Botão para habilitar relatórios avançados
-        document.getElementById('habilitar-relatorios').addEventListener('click', function() {
-            if (window.relatoriosSistema) {
-                window.relatoriosSistema.gerarRelatorio();
-            } else {
-                mostrarNotificacao('Carregando sistema de relatórios...', 'info');
-                setTimeout(() => {
-                    if (window.relatoriosSistema) {
-                        window.relatoriosSistema.gerarRelatorio();
-                    }
-                }, 500);
-            }
-        });
-    }
-    
-    function obterGlicemiasPeriodo(inicio, fim) {
-        return window.dados.glicemias.filter(g => {
-            return g.data >= inicio && g.data <= fim;
-        });
-    }
-    
-    function calcularEstatisticas(glicemias) {
-        if (glicemias.length === 0) {
-            return {
-                media: 0,
-                minima: 0,
-                maxima: 0,
-                percentualNormais: 0
-            };
-        }
-        
-        const valores = glicemias.map(g => g.glicemia);
-        const soma = valores.reduce((acc, val) => acc + val, 0);
-        const media = soma / glicemias.length;
-        const minima = Math.min(...valores);
-        const maxima = Math.max(...valores);
-        const normais = glicemias.filter(g => g.glicemia >= 70 && g.glicemia <= 180).length;
-        const percentualNormais = (normais / glicemias.length * 100).toFixed(1);
-        
-        return {
-            media, minima, maxima, percentualNormais
-        };
     }
     
     // ===== DADOS DEMO =====
     function adicionarDadosDemo() {
         const hoje = new Date();
         const datas = [];
-        
-        // Criar datas dos últimos 7 dias
         for (let i = 6; i >= 0; i--) {
             const data = new Date();
             data.setDate(hoje.getDate() - i);
@@ -786,60 +514,37 @@ document.addEventListener('DOMContentLoaded', function() {
         }
         
         const dadosDemo = [
-            // Dia 1
             { glicemia: 95, data: datas[0], hora: '08:00', observacao: 'Em jejum' },
             { glicemia: 120, data: datas[0], hora: '12:30', observacao: 'Após almoço' },
             { glicemia: 110, data: datas[0], hora: '18:00', observacao: 'Antes do jantar' },
-            
-            // Dia 2
             { glicemia: 98, data: datas[1], hora: '08:15', observacao: 'Em jejum' },
             { glicemia: 135, data: datas[1], hora: '13:00', observacao: 'Após almoço' },
             { glicemia: 115, data: datas[1], hora: '19:30', observacao: 'Antes do jantar' },
-            
-            // Dia 3
             { glicemia: 105, data: datas[2], hora: '07:45', observacao: 'Em jejum' },
             { glicemia: 128, data: datas[2], hora: '12:45', observacao: 'Após almoço' },
             { glicemia: 105, data: datas[2], hora: '18:30', observacao: 'Antes do jantar' },
-            
-            // Dia 4
             { glicemia: 92, data: datas[3], hora: '08:30', observacao: 'Em jejum' },
             { glicemia: 142, data: datas[3], hora: '13:15', observacao: 'Após almoço' },
             { glicemia: 118, data: datas[3], hora: '19:00', observacao: 'Antes do jantar' },
-            
-            // Dia 5
             { glicemia: 102, data: datas[4], hora: '07:30', observacao: 'Em jejum' },
             { glicemia: 125, data: datas[4], hora: '12:15', observacao: 'Após almoço' },
             { glicemia: 112, data: datas[4], hora: '18:45', observacao: 'Antes do jantar' },
-            
-            // Dia 6
             { glicemia: 88, data: datas[5], hora: '08:45', observacao: 'Em jejum' },
             { glicemia: 138, data: datas[5], hora: '13:30', observacao: 'Após almoço' },
             { glicemia: 122, data: datas[5], hora: '19:15', observacao: 'Antes do jantar' },
-            
-            // Dia 7
             { glicemia: 96, data: datas[6], hora: '07:15', observacao: 'Em jejum' },
             { glicemia: 132, data: datas[6], hora: '12:00', observacao: 'Após almoço' },
-            { glicemia: 108, data: datas[6], hora: '18:15', observacao: 'Antes do jantar' },
+            { glicemia: 108, data: datas[6], hora: '18:15', observacao: 'Antes do jantar' }
         ];
         
         dadosDemo.forEach((dado, index) => {
-            let status = '';
-            let statusClass = '';
-            if (dado.glicemia < 70) {
-                status = 'Baixa';
-                statusClass = 'baixa';
-            } else if (dado.glicemia <= 180) {
-                status = 'Normal';
-                statusClass = 'normal';
-            } else if (dado.glicemia <= 250) {
-                status = 'Alta';
-                statusClass = 'alta';
-            } else {
-                status = 'Muito Alta';
-                statusClass = 'muito-alta';
-            }
+            let status = '', statusClass = '';
+            if (dado.glicemia < 70) { status = 'Baixa'; statusClass = 'baixa'; }
+            else if (dado.glicemia <= 180) { status = 'Normal'; statusClass = 'normal'; }
+            else if (dado.glicemia <= 250) { status = 'Alta'; statusClass = 'alta'; }
+            else { status = 'Muito Alta'; statusClass = 'muito-alta'; }
             
-            const registro = {
+            window.dados.glicemias.push({
                 id: Date.now() + index,
                 glicemia: dado.glicemia,
                 data: dado.data,
@@ -848,59 +553,43 @@ document.addEventListener('DOMContentLoaded', function() {
                 status: status,
                 statusClass: statusClass,
                 timestamp: new Date(`${dado.data}T${dado.hora}`).getTime()
-            };
-            window.dados.glicemias.push(registro);
+            });
         });
         
-        // Adicionar metas demo
         const metasDemo = [
-            {
-                descricao: 'Caminhar 30 minutos por dia',
-                categoria: 'exercicio',
-                dataLimite: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
-                concluida: false
-            },
-            {
-                descricao: 'Reduzir consumo de açúcar',
-                categoria: 'alimentacao',
-                dataLimite: new Date(Date.now() + 14 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
-                concluida: true
-            },
-            {
-                descricao: 'Tomar medicação corretamente',
-                categoria: 'medicacao',
-                dataLimite: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
-                concluida: false
-            }
+            { descricao: 'Caminhar 30 minutos por dia', categoria: 'exercicio', dataLimite: new Date(Date.now() + 7*24*60*60*1000).toISOString().split('T')[0], concluida: false },
+            { descricao: 'Reduzir consumo de açúcar', categoria: 'alimentacao', dataLimite: new Date(Date.now() + 14*24*60*60*1000).toISOString().split('T')[0], concluida: true },
+            { descricao: 'Tomar medicação corretamente', categoria: 'medicacao', dataLimite: new Date(Date.now() + 30*24*60*60*1000).toISOString().split('T')[0], concluida: false }
         ];
         
         metasDemo.forEach((meta, index) => {
-            const novaMeta = {
+            window.dados.metas.push({
                 id: Date.now() + 1000 + index,
                 descricao: meta.descricao,
                 categoria: meta.categoria,
                 dataLimite: meta.dataLimite,
                 concluida: meta.concluida,
-                dataCriacao: new Date(Date.now() - (index + 1) * 2 * 24 * 60 * 60 * 1000).toISOString().split('T')[0]
-            };
-            window.dados.metas.push(novaMeta);
+                dataCriacao: new Date(Date.now() - (index+1)*2*24*60*60*1000).toISOString().split('T')[0]
+            });
         });
         
         salvarDados();
         atualizarHistorico();
         atualizarMetas();
-        
-        console.log('Dados demo adicionados para demonstração do sistema');
+        console.log('Dados demo adicionados');
     }
-    
-    // ===== INICIALIZAÇÃO FINAL =====
-    
-    // Verificar se está na seção de registro e mostrar tutorial
-    setTimeout(() => {
-        if (document.getElementById('registro')?.classList.contains('ativa')) {
-            if (window.dados.glicemias.length === 0) {
-                mostrarNotificacao('Bem-vindo ao DiabetesCare! Use o formulário acima para registrar sua primeira glicemia.', 'info');
-            }
-        }
-    }, 1000);
 });
+
+// Adicionar animações CSS
+const styleAnimations = document.createElement('style');
+styleAnimations.textContent = `
+    @keyframes slideIn {
+        from { transform: translateX(100%); opacity: 0; }
+        to { transform: translateX(0); opacity: 1; }
+    }
+    @keyframes slideOut {
+        from { transform: translateX(0); opacity: 1; }
+        to { transform: translateX(100%); opacity: 0; }
+    }
+`;
+document.head.appendChild(styleAnimations);
