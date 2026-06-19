@@ -35,22 +35,27 @@ document.addEventListener('DOMContentLoaded', function() {
                 return;
             }
             
-            const alimento = {
-                id: Date.now(),
-                nome: nome,
-                quantidade: quantidade ? parseFloat(quantidade) : null,
-                carboidratos: carboidratos ? parseFloat(carboidratos) : null,
-                categoria: categoria,
-                data: data,
-                hora: hora,
-                observacao: observacao,
-                timestamp: new Date(`${data}T${hora}`).getTime(),
-                indiceGlicemico: estimarIndiceGlicemico(nome, categoria)
-            };
-            
-            window.dados.alimentos.push(alimento);
-            salvarDados();
+            const indiceGlicemico = estimarIndiceGlicemico(nome, categoria);
+            const resultado = ArmazenamentoDados.adicionarAlimento({
+                nome,
+                quantidade,
+                carboidratos,
+                categoria,
+                data,
+                hora,
+                observacao,
+                indiceGlicemico
+            });
+
+            if (!resultado.sucesso) {
+                mostrarNotificacao(resultado.erro || 'Erro ao registrar alimento', 'erro');
+                return;
+            }
+
             atualizarListaAlimentos();
+            if (window.atualizarDistribuicao) {
+                window.atualizarDistribuicao();
+            }
             
             // Limpar formulário
             this.reset();
@@ -91,7 +96,7 @@ document.addEventListener('DOMContentLoaded', function() {
         
         listaAlimentos.innerHTML = '';
         
-        let alimentosFiltrados = window.dados.alimentos;
+        let alimentosFiltrados = Array.isArray(window.dados?.alimentos) ? window.dados.alimentos : [];
         
         // Aplicar filtro por categoria
         if (filtroAlimento && filtroAlimento.value !== 'todos') {
@@ -148,7 +153,7 @@ document.addEventListener('DOMContentLoaded', function() {
         // Adicionar eventos aos botões de excluir
         document.querySelectorAll('.alimento-item .btn-excluir').forEach(btn => {
             btn.addEventListener('click', function() {
-                const id = parseInt(this.getAttribute('data-id'));
+                const id = this.getAttribute('data-id');
                 excluirAlimento(id);
             });
         });
@@ -157,9 +162,16 @@ document.addEventListener('DOMContentLoaded', function() {
     // Excluir alimento
     function excluirAlimento(id) {
         if (confirm('Excluir este registro de alimento?')) {
-            window.dados.alimentos = window.dados.alimentos.filter(a => a.id !== id);
-            salvarDados();
+            const resultado = ArmazenamentoDados.excluirAlimento(id);
+            if (!resultado.sucesso) {
+                mostrarNotificacao(resultado.erro || 'Erro ao excluir alimento', 'erro');
+                return;
+            }
+
             atualizarListaAlimentos();
+            if (window.atualizarDistribuicao) {
+                window.atualizarDistribuicao();
+            }
             mostrarNotificacao('Alimento excluído', 'sucesso');
         }
     }
@@ -194,11 +206,6 @@ document.addEventListener('DOMContentLoaded', function() {
         if (!data) return '';
         const [ano, mes, dia] = data.split('-');
         return `${dia}/${mes}/${ano}`;
-    }
-
-    // Salvar dados
-    function salvarDados() {
-        localStorage.setItem('alimentos', JSON.stringify(window.dados.alimentos));
     }
 
     // Inicializar lista

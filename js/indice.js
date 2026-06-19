@@ -3,24 +3,69 @@ document.addEventListener('DOMContentLoaded', function() {
     const formIndice = document.getElementById('form-indice');
     const resultadoIndice = document.getElementById('resultado-indice');
     const filtroPeriodo = document.getElementById('filtro-periodo-indice');
+    const blocoPersonalizado = document.getElementById('periodo-indice-personalizado');
+    const btnCalcularIndice = document.getElementById('btn-calcular-indice');
+    const inputInicio = document.getElementById('indice-inicio');
+    const inputFim = document.getElementById('indice-fim');
 
-    // Função para calcular estatísticas de período
-    function calcularIndicePeriodo(periodoDias) {
-        const fim = new Date();
-        const inicio = new Date();
-        inicio.setDate(inicio.getDate() - periodoDias);
-        
-        const inicioStr = inicio.toISOString().split('T')[0];
-        const fimStr = fim.toISOString().split('T')[0];
-        
-        const glicemiasPeriodo = window.dados.glicemias.filter(g => {
-            return g.data >= inicioStr && g.data <= fimStr;
-        });
+    let modoPersonalizado = false;
 
-        return calcularEstatisticasIndice(glicemiasPeriodo, periodoDias);
+    function obterRegistrosPeriodo(inicioStr, fimStr) {
+        if (!window.dados?.glicemias || !inicioStr || !fimStr) return [];
+
+        const inicio = new Date(`${inicioStr}T00:00:00`);
+        const fim = new Date(`${fimStr}T23:59:59`);
+
+        return window.dados.glicemias
+            .filter(g => {
+                const dataRegistro = g.timestamp ? new Date(g.timestamp) : new Date(`${g.data}T${g.hora || '00:00'}`);
+                if (Number.isNaN(dataRegistro.getTime())) return false;
+                return dataRegistro >= inicio && dataRegistro <= fim;
+            })
+            .sort((a, b) => (a.timestamp || 0) - (b.timestamp || 0));
     }
 
-    // Função principal de cálculo
+    function diasEntre(inicioStr, fimStr) {
+        const inicio = new Date(`${inicioStr}T00:00:00`);
+        const fim = new Date(`${fimStr}T00:00:00`);
+        return Math.max(1, Math.floor((fim - inicio) / (1000 * 60 * 60 * 24)) + 1);
+    }
+
+    function definirIntervalo(periodoDias) {
+        const fim = new Date();
+        const inicio = new Date();
+        inicio.setDate(inicio.getDate() - (periodoDias - 1));
+
+        const inicioStr = inicio.toISOString().split('T')[0];
+        const fimStr = fim.toISOString().split('T')[0];
+
+        if (inputInicio) inputInicio.value = inicioStr;
+        if (inputFim) inputFim.value = fimStr;
+
+        return { inicioStr, fimStr };
+    }
+
+    function calcularIndicePeriodo(periodoDias) {
+        const { inicioStr, fimStr } = definirIntervalo(periodoDias);
+        const glicemiasPeriodo = obterRegistrosPeriodo(inicioStr, fimStr);
+        return calcularEstatisticasIndice(glicemiasPeriodo, diasEntre(inicioStr, fimStr));
+    }
+
+    function alternarModoPersonalizado(ativo) {
+        modoPersonalizado = ativo;
+
+        if (blocoPersonalizado) {
+            blocoPersonalizado.style.display = ativo ? 'grid' : 'none';
+        }
+
+        if (btnCalcularIndice) {
+            btnCalcularIndice.style.display = ativo ? 'inline-flex' : 'none';
+        }
+
+        if (inputInicio) inputInicio.required = ativo;
+        if (inputFim) inputFim.required = ativo;
+    }
+
     function calcularEstatisticasIndice(glicemias, periodoDias) {
         if (!glicemias || glicemias.length === 0) {
             return {
@@ -43,26 +88,17 @@ document.addEventListener('DOMContentLoaded', function() {
         const media = valores.reduce((a, b) => a + b, 0) / valores.length;
         const maxima = Math.max(...valores);
         const minima = Math.min(...valores);
-        
-        // Calcular desvio padrão
+
         const desvio = Math.sqrt(
             valores.reduce((sq, n) => sq + Math.pow(n - media, 2), 0) / valores.length
         );
-        
-        // Calcular percentual dentro do alvo (70-180 mg/dL)
+
         const dentroAlvo = glicemias.filter(g => g.glicemia >= 70 && g.glicemia <= 180).length;
         const percentualAlvo = (dentroAlvo / glicemias.length * 100).toFixed(1);
-        
-        // Calcular variabilidade glicêmica
+
         const variabilidade = calcularVariabilidadeGlicemica(glicemias);
-        
-        // Determinar tendência
         const tendencia = determinarTendencia(glicemias);
-        
-        // Classificar controle glicêmico
         const classificacao = classificarControle(media, percentualAlvo, variabilidade);
-        
-        // Gerar recomendações
         const recomendacoes = gerarRecomendacoes(media, percentualAlvo, variabilidade, glicemias);
 
         return {
@@ -81,10 +117,9 @@ document.addEventListener('DOMContentLoaded', function() {
         };
     }
 
-    // Calcular variabilidade glicêmica
     function calcularVariabilidadeGlicemica(glicemias) {
         if (glicemias.length < 2) return 0;
-        
+
         const valores = glicemias.map(g => g.glicemia);
         const media = valores.reduce((a, b) => a + b, 0) / valores.length;
         const desvios = valores.map(v => Math.pow(v - media, 2));
@@ -92,24 +127,22 @@ document.addEventListener('DOMContentLoaded', function() {
         return Math.sqrt(variancia);
     }
 
-    // Determinar tendência
     function determinarTendencia(glicemias) {
         if (glicemias.length < 3) return 'estável';
-        
-        const primeiros = glicemias.slice(0, Math.floor(glicemias.length / 3));
-        const ultimos = glicemias.slice(-Math.floor(glicemias.length / 3));
-        
+
+        const tamanhoGrupo = Math.max(1, Math.floor(glicemias.length / 3));
+        const primeiros = glicemias.slice(0, tamanhoGrupo);
+        const ultimos = glicemias.slice(-tamanhoGrupo);
+
         const mediaInicial = primeiros.reduce((a, b) => a + b.glicemia, 0) / primeiros.length;
         const mediaFinal = ultimos.reduce((a, b) => a + b.glicemia, 0) / ultimos.length;
-        
         const diferenca = mediaFinal - mediaInicial;
-        
+
         if (diferenca > 15) return 'crescendo 📈';
         if (diferenca < -15) return 'decrescendo 📉';
         return 'estável →';
     }
 
-    // Classificar controle glicêmico
     function classificarControle(media, percentualAlvo, variabilidade) {
         if (percentualAlvo >= 70 && media <= 154 && variabilidade <= 36) {
             return 'Excelente 👑';
@@ -122,44 +155,36 @@ document.addEventListener('DOMContentLoaded', function() {
         }
     }
 
-    // Gerar recomendações personalizadas
     function gerarRecomendacoes(media, percentualAlvo, variabilidade, glicemias) {
         const recomendacoes = [];
-        
-        // Baseado na média
+
         if (media > 180) {
             recomendacoes.push('Considere ajustar a medicação ou dieta para reduzir a glicemia média');
         } else if (media < 70) {
             recomendacoes.push('Atenção: risco de hipoglicemia. Avalie necessidade de reduzir medicação');
         }
-        
-        // Baseado no tempo no alvo
+
         if (percentualAlvo < 50) {
             recomendacoes.push('Aumente o monitoramento para identificar padrões de variação');
         }
-        
-        // Baseado na variabilidade
+
         if (variabilidade > 50) {
             recomendacoes.push('Alta variabilidade: tente manter horários regulares de refeições e medicação');
         }
-        
-        // Contagem de hipoglicemias
+
         const hipoglicemias = glicemias.filter(g => g.glicemia < 70).length;
         if (hipoglicemias > 0) {
             recomendacoes.push(`${hipoglicemias} episódio(s) de hipoglicemia registrado(s). Fique atento aos sintomas`);
         }
-        
-        // Recomendações gerais
+
         recomendacoes.push('Continue monitorando regularmente');
         recomendacoes.push('Compartilhe esses dados com seu médico na próxima consulta');
-        
         return recomendacoes;
     }
 
-    // Atualizar exibição dos resultados
     function atualizarResultadoIndice(estatisticas) {
         if (!resultadoIndice) return;
-        
+
         const cores = {
             'Excelente 👑': '#2ecc71',
             'Bom 👍': '#3498db',
@@ -167,9 +192,9 @@ document.addEventListener('DOMContentLoaded', function() {
             'Precisa de Ajuste 🚨': '#e74c3c',
             'sem dados': '#95a5a6'
         };
-        
+
         const corClassificacao = cores[estatisticas.classificacao] || '#95a5a6';
-        
+
         resultadoIndice.innerHTML = `
             <div class="indice-header">
                 <h3>Resultado do Índice Glicêmico</h3>
@@ -203,30 +228,16 @@ document.addEventListener('DOMContentLoaded', function() {
                 <div class="detalhes-indice">
                     <h4>Detalhes Estatísticos</h4>
                     <table>
-                        <tr>
-                            <td>Total de Registros:</td>
-                            <td><strong>${estatisticas.totalRegistros}</strong></td>
-                        </tr>
-                        <tr>
-                            <td>Glicemia Máxima:</td>
-                            <td><strong>${estatisticas.maxima} mg/dL</strong></td>
-                        </tr>
-                        <tr>
-                            <td>Glicemia Mínima:</td>
-                            <td><strong>${estatisticas.minima} mg/dL</strong></td>
-                        </tr>
-                        <tr>
-                            <td>Desvio Padrão:</td>
-                            <td><strong>${estatisticas.desvioPadrao}</strong></td>
-                        </tr>
+                        <tr><td>Total de Registros:</td><td><strong>${estatisticas.totalRegistros}</strong></td></tr>
+                        <tr><td>Glicemia Máxima:</td><td><strong>${estatisticas.maxima} mg/dL</strong></td></tr>
+                        <tr><td>Glicemia Mínima:</td><td><strong>${estatisticas.minima} mg/dL</strong></td></tr>
+                        <tr><td>Desvio Padrão:</td><td><strong>${estatisticas.desvioPadrao}</strong></td></tr>
                     </table>
                 </div>
                 
                 <div class="recomendacoes-indice">
                     <h4>Recomendações</h4>
-                    <ul>
-                        ${estatisticas.recomendacoes.map(rec => `<li>${rec}</li>`).join('')}
-                    </ul>
+                    <ul>${estatisticas.recomendacoes.map(rec => `<li>${rec}</li>`).join('')}</ul>
                 </div>
                 
                 <div class="legenda-indice">
@@ -236,60 +247,61 @@ document.addEventListener('DOMContentLoaded', function() {
         `;
     }
 
-    // Inicializar formulário
     if (formIndice) {
-        // Configurar data padrão para 30 dias atrás
-        const fim = new Date();
-        const inicio = new Date();
-        inicio.setDate(inicio.getDate() - 30);
-        
-        document.getElementById('indice-inicio').value = inicio.toISOString().split('T')[0];
-        document.getElementById('indice-fim').value = fim.toISOString().split('T')[0];
-        
+        definirIntervalo(30);
+        alternarModoPersonalizado(false);
+
         formIndice.addEventListener('submit', function(e) {
             e.preventDefault();
-            
-            const inicio = document.getElementById('indice-inicio').value;
-            const fim = document.getElementById('indice-fim').value;
-            
+
+            if (!modoPersonalizado) {
+                mostrarNotificacao('Use "Personalizado" para cálculo manual por datas', 'info');
+                return;
+            }
+
+            const inicio = inputInicio?.value;
+            const fim = inputFim?.value;
+
             if (!inicio || !fim) {
                 mostrarNotificacao('Selecione o período para cálculo', 'erro');
                 return;
             }
-            
-            const glicemiasPeriodo = window.dados.glicemias.filter(g => {
-                return g.data >= inicio && g.data <= fim;
-            }).sort((a, b) => a.timestamp - b.timestamp);
-            
-            const dias = Math.round((new Date(fim) - new Date(inicio)) / (1000 * 60 * 60 * 24));
-            
-            const estatisticas = calcularEstatisticasIndice(glicemiasPeriodo, dias);
+
+            if (inicio > fim) {
+                mostrarNotificacao('A data inicial não pode ser maior que a data final', 'erro');
+                return;
+            }
+
+            const glicemiasPeriodo = obterRegistrosPeriodo(inicio, fim);
+            const estatisticas = calcularEstatisticasIndice(glicemiasPeriodo, diasEntre(inicio, fim));
             atualizarResultadoIndice(estatisticas);
-            
-            mostrarNotificacao('Índice calculado com sucesso!', 'sucesso');
+            mostrarNotificacao('Índice personalizado calculado com sucesso!', 'sucesso');
         });
     }
 
-    // Filtro rápido de período
     if (filtroPeriodo) {
         filtroPeriodo.addEventListener('change', function(e) {
-            const periodo = parseInt(e.target.value);
-            if (periodo > 0) {
+            const valor = e.target.value;
+
+            if (valor === 'personalizado') {
+                alternarModoPersonalizado(true);
+                return;
+            }
+
+            const periodo = parseInt(valor, 10);
+            if (!Number.isNaN(periodo) && periodo > 0) {
+                alternarModoPersonalizado(false);
                 const estatisticas = calcularIndicePeriodo(periodo);
                 atualizarResultadoIndice(estatisticas);
             }
         });
     }
 
-    // Calcular índice inicial (30 dias)
     setTimeout(() => {
-        if (filtroPeriodo) {
-            const estatisticas = calcularIndicePeriodo(30);
-            atualizarResultadoIndice(estatisticas);
-        }
-    }, 500);
+        const estatisticas = calcularIndicePeriodo(30);
+        atualizarResultadoIndice(estatisticas);
+    }, 200);
 
-    // Função auxiliar para notificações
     function mostrarNotificacao(mensagem, tipo) {
         const notificacao = document.createElement('div');
         notificacao.className = `notificacao notificacao-${tipo}`;
@@ -297,9 +309,9 @@ document.addEventListener('DOMContentLoaded', function() {
             <i class="fas fa-${tipo === 'sucesso' ? 'check-circle' : tipo === 'erro' ? 'exclamation-circle' : 'info-circle'}"></i>
             <span>${mensagem}</span>
         `;
-        
+
         document.body.appendChild(notificacao);
-        
+
         setTimeout(() => {
             notificacao.classList.add('fade-out');
             setTimeout(() => {

@@ -1,7 +1,14 @@
-// js/script.js - Sistema principal com navegação funcional (VERSÃO CORRIGIDA - SEM CONFLITO COM RELATÓRIOS)
+/**
+ * script.js - Sistema principal de navegação e inicialização
+ * Versão 3.0 - Profissionalizado com arquitetura modular
+ * Desenvolvido por: Gledison Arruda Andrade
+ * Data: 2025-06-19
+ */
+
+'use strict';
 
 document.addEventListener('DOMContentLoaded', function() {
-    // Elementos DOM
+    // Elementos DOM principais
     const secoes = document.querySelectorAll('.secao');
     const linksMenu = document.querySelectorAll('.nav-link');
     const btnMenuMobile = document.getElementById('btn-menu-mobile');
@@ -11,71 +18,85 @@ document.addEventListener('DOMContentLoaded', function() {
     const btnTestarAlerta = document.getElementById('testar-alerta');
     const btnLimparFiltro = document.getElementById('limpar-filtro');
     
-    // NÃO declarar formRelatorio e btnBaixarPDF aqui para evitar conflito
-    // Eles serão gerenciados exclusivamente pelo relatorios.js
-    
-    // Dados da aplicação
-    window.dados = {
-        glicemias: JSON.parse(localStorage.getItem('glicemias')) || [],
-        metas: JSON.parse(localStorage.getItem('metas')) || [],
-        alimentos: JSON.parse(localStorage.getItem('alimentos')) || []
-    };
+    // Fazer dados globalmente acessíveis
+    window.dados = ArmazenamentoDados.dados;
     
     // ===== FUNÇÕES GLOBAIS =====
     window.atualizarGrafico = function() {
-        if (window.graficosSistema) {
+        if (window.graficosSistema && typeof window.graficosSistema.atualizarGrafico === 'function') {
             window.graficosSistema.atualizarGrafico();
         }
     };
     
-    // Inicialização
-    inicializarNavegacao();
-    inicializarFormularios();
-    inicializarDados();
+    window.atualizarDistribuicao = function() {
+        if (window.pizzaSistema && typeof window.pizzaSistema.atualizarGrafico === 'function') {
+            window.pizzaSistema.atualizarGrafico();
+        }
+    };
+    
+    // Inicialização do sistema
+    inicializarSistema();
+    
+    // ===== INICIALIZAÇÃO DO SISTEMA =====
+    function inicializarSistema() {
+        console.log('🚀 Iniciando DiabetesCare v3.0...');
+        
+        inicializarNavegacao();
+        inicializarFormularios();
+        inicializarDados();
+        
+        console.log('✅ Sistema inicializado com sucesso');
+    }
     
     // ===== NAVEGAÇÃO =====
     function inicializarNavegacao() {
         // Menu mobile
         if (btnMenuMobile) {
-            btnMenuMobile.addEventListener('click', function() {
+            btnMenuMobile.addEventListener('click', () => {
                 mainNav.classList.toggle('mostrar');
+                btnMenuMobile.setAttribute('aria-expanded', 
+                    mainNav.classList.contains('mostrar') ? 'true' : 'false');
             });
         }
         
         // Navegação entre seções
         linksMenu.forEach(link => {
-            link.addEventListener('click', function(e) {
+            link.addEventListener('click', (e) => {
                 e.preventDefault();
                 
-                // Obter seção alvo
-                const secaoAlvo = this.getAttribute('data-section');
+                const secaoAlvo = link.getAttribute('data-section');
                 
                 // Atualizar menu ativo
                 linksMenu.forEach(l => l.classList.remove('active'));
-                this.classList.add('active');
+                link.classList.add('active');
+                link.setAttribute('aria-current', 'page');
                 
                 // Mostrar seção
                 mostrarSecao(secaoAlvo);
                 
-                // Fechar menu mobile se aberto
+                // Fechar menu mobile
                 if (window.innerWidth <= 768) {
                     mainNav.classList.remove('mostrar');
+                    btnMenuMobile.setAttribute('aria-expanded', 'false');
                 }
                 
-                // Rolar para o topo suavemente
+                // Rolar para o topo
                 window.scrollTo({ top: 0, behavior: 'smooth' });
             });
         });
         
         // Links do footer
         document.querySelectorAll('.footer-links a').forEach(link => {
-            link.addEventListener('click', function(e) {
+            link.addEventListener('click', (e) => {
                 e.preventDefault();
-                const secaoAlvo = this.getAttribute('data-section');
+                const secaoAlvo = link.getAttribute('data-section');
                 
                 linksMenu.forEach(l => l.classList.remove('active'));
                 const linkAtivo = document.querySelector(`.nav-link[data-section="${secaoAlvo}"]`);
-                if (linkAtivo) linkAtivo.classList.add('active');
+                if (linkAtivo) {
+                    linkAtivo.classList.add('active');
+                    linkAtivo.setAttribute('aria-current', 'page');
+                }
                 
                 mostrarSecao(secaoAlvo);
             });
@@ -83,15 +104,20 @@ document.addEventListener('DOMContentLoaded', function() {
     }
     
     function mostrarSecao(secaoId) {
+        // Validar seção
+        if (!secaoId) return;
+        
         // Esconder todas as seções
         secoes.forEach(secao => {
             secao.classList.remove('ativa');
+            secao.setAttribute('aria-hidden', 'true');
         });
         
         // Mostrar seção alvo
         const secaoAlvo = document.getElementById(secaoId);
         if (secaoAlvo) {
             secaoAlvo.classList.add('ativa');
+            secaoAlvo.setAttribute('aria-hidden', 'false');
             
             // Disparar evento personalizado
             const evento = new CustomEvent('secaoAtivada', { 
@@ -99,232 +125,233 @@ document.addEventListener('DOMContentLoaded', function() {
             });
             document.dispatchEvent(evento);
             
-            // Executar ações específicas da seção
-            if (secaoId === 'grafico') {
-                setTimeout(() => {
-                    if (window.graficosSistema && typeof window.graficosSistema.inicializar === 'function') {
-                        window.graficosSistema.inicializar();
-                    }
-                }, 300);
-            }
-            
-            if (secaoId === 'relatorio') {
-                setTimeout(() => {
-                    if (window.relatoriosSistema && typeof window.relatoriosSistema.inicializar === 'function') {
-                        window.relatoriosSistema.inicializar();
-                    } else if (window.relatorioSys && typeof window.relatorioSys.inicializar === 'function') {
-                        window.relatorioSys.inicializar();
-                    }
-                }, 300);
-            }
-            
-            if (secaoId === 'indice') {
-                setTimeout(() => {
-                    if (window.indiceSistema && typeof window.indiceSistema.inicializar === 'function') {
-                        window.indiceSistema.inicializar();
-                    }
-                }, 300);
-            }
+            // Inicializar componentes específicos
+            inicializarComponentesSecao(secaoId);
         }
     }
     
-    // ===== FORMULÁRIOS (exceto relatório que é gerenciado pelo relatorios.js) =====
-    function inicializarFormularios() {
-        // Formulário de glicemia
-        if (formGlicemia) {
-            const hoje = new Date();
-            document.getElementById('data').value = hoje.toISOString().split('T')[0];
-            document.getElementById('hora').value = hoje.toTimeString().substring(0, 5);
+    function inicializarComponentesSecao(secaoId) {
+        switch(secaoId) {
+            case 'grafico':
+                setTimeout(() => {
+                    if (window.graficosSistema?.inicializar) {
+                        window.graficosSistema.inicializar();
+                    }
+                }, 300);
+                break;
             
-            formGlicemia.addEventListener('submit', function(e) {
-                e.preventDefault();
-                
-                const glicemia = parseInt(document.getElementById('glicemia').value);
+            case 'relatorio':
+                setTimeout(() => {
+                    const sistemaRelatorio = window.relatorioSistema || window.relatoriosSistema;
+                    if (sistemaRelatorio?.inicializar) {
+                        sistemaRelatorio.inicializar();
+                    }
+                }, 300);
+                break;
+            
+            case 'pizza':
+                setTimeout(() => {
+                    if (window.pizzaSistema?.inicializar) {
+                        window.pizzaSistema.inicializar();
+                    }
+                    if (window.pizzaSistema?.chartPizza) {
+                        window.pizzaSistema.chartPizza.resize();
+                    }
+                    if (window.pizzaSistema?.atualizarGrafico) {
+                        window.pizzaSistema.atualizarGrafico();
+                    }
+                }, 300);
+                break;
+            
+            case 'indice':
+                setTimeout(() => {
+                    if (window.indiceSistema?.inicializar) {
+                        window.indiceSistema.inicializar();
+                    }
+                }, 300);
+                break;
+            
+            case 'alimentos':
+                atualizarListaAlimentos();
+                break;
+        }
+    }
+    
+    // ===== FORMULÁRIOS =====
+    function inicializarFormularios() {
+        inicializarFormularioGlicemia();
+        inicializarFormularioMetas();
+        inicializarBotoesAcao();
+    }
+    
+    function inicializarFormularioGlicemia() {
+        if (!formGlicemia) return;
+        
+        // Preencher data e hora atuais
+        const agora = new Date();
+        document.getElementById('data').value = agora.toISOString().split('T')[0];
+        document.getElementById('hora').value = agora.toTimeString().substring(0, 5);
+        
+        formGlicemia.addEventListener('submit', (e) => {
+            e.preventDefault();
+            
+            try {
+                const glicemia = document.getElementById('glicemia').value;
                 const data = document.getElementById('data').value;
                 const hora = document.getElementById('hora').value;
                 const observacao = document.getElementById('observacao').value;
                 
-                if (!glicemia || glicemia < 20 || glicemia > 600) {
-                    mostrarNotificacao('Valor de glicemia inválido (20-600 mg/dL)', 'erro');
+                // Validar dados
+                if (!glicemia || !data || !hora) {
+                    Notificacoes.erro('Preencha todos os campos obrigatórios');
                     return;
                 }
                 
-                if (!data || !hora) {
-                    mostrarNotificacao('Preencha data e hora', 'erro');
+                // Adicionar glicemia via gerenciador
+                const resultado = ArmazenamentoDados.adicionarGlicemia({
+                    glicemia,
+                    data,
+                    hora,
+                    observacao
+                });
+                
+                if (!resultado.sucesso) {
+                    Notificacoes.erro(resultado.erro);
                     return;
                 }
                 
-                let status = '';
-                let statusClass = '';
-                if (glicemia < 70) {
-                    status = 'Baixa';
-                    statusClass = 'baixa';
-                } else if (glicemia <= 180) {
-                    status = 'Normal';
-                    statusClass = 'normal';
-                } else if (glicemia <= 250) {
-                    status = 'Alta';
-                    statusClass = 'alta';
-                } else {
-                    status = 'Muito Alta';
-                    statusClass = 'muito-alta';
-                }
+                // Sucesso
+                Notificacoes.sucesso(`Glicemia registrada: ${glicemia} mg/dL`);
+                formGlicemia.reset();
+                document.getElementById('data').value = new Date().toISOString().split('T')[0];
+                document.getElementById('hora').value = new Date().toTimeString().substring(0, 5);
                 
-                const registro = {
-                    id: Date.now(),
-                    glicemia: glicemia,
-                    data: data,
-                    hora: hora,
-                    observacao: observacao,
-                    status: status,
-                    statusClass: statusClass,
-                    timestamp: new Date(`${data}T${hora}`).getTime()
-                };
-                
-                window.dados.glicemias.push(registro);
-                salvarDados();
+                // Atualizar exibições
                 atualizarHistorico();
+                atualizarGrafico();
+                window.atualizarDistribuicao();
                 
-                if (window.atualizarGrafico) {
-                    atualizarGrafico();
-                }
-                
-                document.getElementById('glicemia').value = '';
-                document.getElementById('observacao').value = '';
-                
-                mostrarNotificacao(`Glicemia registrada: ${glicemia} mg/dL`, 'sucesso');
-            });
-        }
+            } catch (erro) {
+                console.error('Erro ao registrar glicemia:', erro);
+                Notificacoes.erro('Erro ao registrar glicemia');
+            }
+        });
+    }
+    
+    function inicializarFormularioMetas() {
+        if (!formMeta) return;
         
-        // Formulário de metas
-        if (formMeta) {
-            const hoje = new Date().toISOString().split('T')[0];
-            document.getElementById('data-meta').min = hoje;
+        // Definir data mínima
+        const hoje = new Date().toISOString().split('T')[0];
+        document.getElementById('data-meta').min = hoje;
+        
+        formMeta.addEventListener('submit', (e) => {
+            e.preventDefault();
             
-            formMeta.addEventListener('submit', function(e) {
-                e.preventDefault();
-                
+            try {
                 const descricao = document.getElementById('descricao-meta').value;
                 const dataLimite = document.getElementById('data-meta').value;
                 const categoria = document.getElementById('categoria-meta').value;
                 
-                if (!descricao) {
-                    mostrarNotificacao('Digite uma descrição para a meta', 'erro');
+                const resultado = ArmazenamentoDados.adicionarMeta({
+                    descricao,
+                    dataLimite,
+                    categoria
+                });
+                
+                if (!resultado.sucesso) {
+                    Notificacoes.erro(resultado.erro);
                     return;
                 }
                 
-                const meta = {
-                    id: Date.now(),
-                    descricao: descricao,
-                    dataLimite: dataLimite,
-                    categoria: categoria,
-                    concluida: false,
-                    dataCriacao: new Date().toISOString().split('T')[0]
-                };
+                Notificacoes.sucesso('Meta adicionada com sucesso!');
+                formMeta.reset();
+                document.getElementById('data-meta').min = hoje;
                 
-                window.dados.metas.push(meta);
-                salvarDados();
                 atualizarMetas();
+                window.atualizarDistribuicao();
                 
-                this.reset();
-                document.getElementById('data-meta').min = new Date().toISOString().split('T')[0];
-                
-                mostrarNotificacao('Meta adicionada com sucesso!', 'sucesso');
-            });
-        }
-        
-        // Botão de testar alerta
+            } catch (erro) {
+                console.error('Erro ao adicionar meta:', erro);
+                Notificacoes.erro('Erro ao adicionar meta');
+            }
+        });
+    }
+    
+    function inicializarBotoesAcao() {
+        // Botão testar alerta
         if (btnTestarAlerta) {
-            btnTestarAlerta.addEventListener('click', function() {
+            btnTestarAlerta.addEventListener('click', () => {
                 const limite = document.getElementById('limite-baixo').value || '70';
                 const contato = document.getElementById('contato-emergencia').value;
                 
                 if (!contato) {
-                    mostrarNotificacao('Informe um contato de emergência', 'erro');
+                    Notificacoes.erro('Informe um contato de emergência');
                     return;
                 }
                 
-                mostrarNotificacao(`Alerta de teste! Mensagem seria enviada para ${contato} quando a glicemia estiver abaixo de ${limite} mg/dL`, 'info');
+                Notificacoes.info(
+                    `Alerta ativado! Mensagem será enviada para ${contato} quando glicemia < ${limite} mg/dL`,
+                    5000
+                );
             });
         }
         
         // Botão limpar filtros
         if (btnLimparFiltro) {
-            btnLimparFiltro.addEventListener('click', function() {
+            btnLimparFiltro.addEventListener('click', () => {
                 document.getElementById('filtro-data').value = '';
                 document.getElementById('filtro-status').value = 'todos';
                 atualizarHistorico();
-                mostrarNotificacao('Filtros limpos', 'sucesso');
+                Notificacoes.sucesso('Filtros limpos');
             });
         }
         
-        // Filtro de data no histórico
+        // Filtro de data
         const filtroData = document.getElementById('filtro-data');
         if (filtroData) {
-            filtroData.addEventListener('change', function() {
-                atualizarHistorico();
-            });
+            filtroData.addEventListener('change', atualizarHistorico);
         }
         
-        // Filtro de status no histórico
+        // Filtro de status
         const filtroStatus = document.getElementById('filtro-status');
         if (filtroStatus) {
-            filtroStatus.addEventListener('change', function() {
-                atualizarHistorico();
-            });
+            filtroStatus.addEventListener('change', atualizarHistorico);
         }
-        
-        // NOTA: O formulário de relatório e botão de PDF NÃO são configurados aqui
-        // para evitar conflito com o relatorios.js
     }
     
     // ===== INICIALIZAÇÃO DE DADOS =====
     function inicializarDados() {
         atualizarHistorico();
         atualizarMetas();
+        window.atualizarDistribuicao();
         
-        if (document.getElementById('grafico')?.classList.contains('ativa')) {
-            setTimeout(() => {
-                if (window.graficosSistema && typeof window.graficosSistema.inicializar === 'function') {
-                    window.graficosSistema.inicializar();
-                }
-            }, 500);
-        }
-        
-        if (window.dados.glicemias.length === 0) {
+        // Carregar dados de demonstração se não houver dados
+        if (ArmazenamentoDados.dados.glicemias.length === 0) {
             adicionarDadosDemo();
         }
+        
+        console.log(`✅ ${ArmazenamentoDados.dados.glicemias.length} registros de glicemia carregados`);
     }
     
-    // ===== FUNÇÕES DE DADOS =====
-    function salvarDados() {
-        localStorage.setItem('glicemias', JSON.stringify(window.dados.glicemias));
-        localStorage.setItem('metas', JSON.stringify(window.dados.metas));
-        localStorage.setItem('alimentos', JSON.stringify(window.dados.alimentos));
-    }
-    
+    // ===== ATUALIZAÇÃO DE HISTÓRICO =====
     function atualizarHistorico() {
         const listaHistorico = document.getElementById('lista-historico');
         if (!listaHistorico) return;
         
         listaHistorico.innerHTML = '';
         
-        let glicemiasFiltradas = [...window.dados.glicemias];
+        // Obter filtros
+        const filtroData = document.getElementById('filtro-data')?.value || '';
+        const filtroStatus = document.getElementById('filtro-status')?.value || 'todos';
         
-        const filtroData = document.getElementById('filtro-data');
-        const filtroStatus = document.getElementById('filtro-status');
+        // Aplicar filtros
+        const glicemias = ArmazenamentoDados.obterGlicemias({
+            data: filtroData || undefined,
+            status: filtroStatus !== 'todos' ? filtroStatus : undefined
+        });
         
-        if (filtroData && filtroData.value) {
-            glicemiasFiltradas = glicemiasFiltradas.filter(g => g.data === filtroData.value);
-        }
-        
-        if (filtroStatus && filtroStatus.value !== 'todos') {
-            glicemiasFiltradas = glicemiasFiltradas.filter(g => g.statusClass === filtroStatus.value);
-        }
-        
-        glicemiasFiltradas.sort((a, b) => b.timestamp - a.timestamp);
-        
-        if (glicemiasFiltradas.length === 0) {
+        if (glicemias.length === 0) {
             listaHistorico.innerHTML = `
                 <div class="sem-dados">
                     <i class="fas fa-clipboard-list"></i>
@@ -334,7 +361,7 @@ document.addEventListener('DOMContentLoaded', function() {
             return;
         }
         
-        glicemiasFiltradas.forEach(registro => {
+        glicemias.forEach(registro => {
             const item = document.createElement('div');
             item.className = `registro-item ${registro.statusClass}`;
             item.innerHTML = `
@@ -344,25 +371,39 @@ document.addEventListener('DOMContentLoaded', function() {
                         <span class="registro-status ${registro.statusClass}">${registro.status}</span>
                     </div>
                     <div class="registro-data">
-                        ${formatarData(registro.data)} às ${registro.hora}
+                        ${Utils.formatarData(registro.data)} às ${registro.hora}
                     </div>
-                    ${registro.observacao ? `<div class="registro-obs"><i class="fas fa-comment"></i> ${registro.observacao}</div>` : ''}
+                    ${registro.observacao ? `
+                        <div class="registro-obs">
+                            <i class="fas fa-comment"></i> ${registro.observacao}
+                        </div>
+                    ` : ''}
                 </div>
-                <button class="btn-excluir" data-id="${registro.id}" title="Excluir registro">
+                <button class="btn-excluir" title="Excluir registro" aria-label="Excluir registro">
                     <i class="fas fa-trash"></i>
                 </button>
             `;
-            listaHistorico.appendChild(item);
-        });
-        
-        document.querySelectorAll('.btn-excluir').forEach(btn => {
-            btn.addEventListener('click', function() {
-                const id = parseInt(this.getAttribute('data-id'));
-                excluirRegistroGlicemia(id);
+            
+            const btnExcluir = item.querySelector('.btn-excluir');
+            btnExcluir.addEventListener('click', () => {
+                if (confirm('Tem certeza que deseja excluir este registro?')) {
+                    const resultado = ArmazenamentoDados.excluirGlicemia(registro.id);
+                    if (resultado.sucesso) {
+                        Notificacoes.sucesso('Registro excluído com sucesso');
+                        atualizarHistorico();
+                        atualizarGrafico();
+                        window.atualizarDistribuicao();
+                    } else {
+                        Notificacoes.erro(resultado.erro);
+                    }
+                }
             });
+            
+            listaHistorico.appendChild(item);
         });
     }
     
+    // ===== ATUALIZAÇÃO DE METAS =====
     function atualizarMetas() {
         const listaPendentes = document.getElementById('lista-metas-pendentes');
         const listaConcluidas = document.getElementById('lista-metas-concluidas');
@@ -372,9 +413,10 @@ document.addEventListener('DOMContentLoaded', function() {
         listaPendentes.innerHTML = '';
         listaConcluidas.innerHTML = '';
         
-        const metasPendentes = window.dados.metas.filter(m => !m.concluida);
-        const metasConcluidas = window.dados.metas.filter(m => m.concluida);
+        const metasPendentes = ArmazenamentoDados.obterMetas('pendentes');
+        const metasConcluidas = ArmazenamentoDados.obterMetas('concluidas');
         
+        // Renderizar metas pendentes
         if (metasPendentes.length === 0) {
             listaPendentes.innerHTML = '<p class="sem-dados">Nenhuma meta pendente</p>';
         } else {
@@ -384,19 +426,57 @@ document.addEventListener('DOMContentLoaded', function() {
                     <div>
                         <strong>${meta.descricao}</strong>
                         <div class="meta-info">
-                            <span class="meta-categoria"><i class="fas fa-tag"></i> ${formatarCategoria(meta.categoria)}</span>
-                            ${meta.dataLimite ? `<span class="meta-data"><i class="fas fa-calendar"></i> ${formatarData(meta.dataLimite)}</span>` : ''}
+                            <span class="meta-categoria">
+                                <i class="fas fa-tag"></i> 
+                                ${Utils.formatarCategoria(meta.categoria, 'metas')}
+                            </span>
+                            ${meta.dataLimite ? `
+                                <span class="meta-data">
+                                    <i class="fas fa-calendar"></i> 
+                                    ${Utils.formatarData(meta.dataLimite)}
+                                </span>
+                            ` : ''}
                         </div>
                     </div>
                     <div class="meta-acoes">
-                        <button class="btn-concluir" data-id="${meta.id}" title="Concluir"><i class="fas fa-check"></i></button>
-                        <button class="btn-excluir" data-id="${meta.id}" title="Excluir"><i class="fas fa-trash"></i></button>
+                        <button class="btn-concluir" title="Concluir meta">
+                            <i class="fas fa-check"></i>
+                        </button>
+                        <button class="btn-excluir" title="Excluir meta">
+                            <i class="fas fa-trash"></i>
+                        </button>
                     </div>
                 `;
+                
+                li.querySelector('.btn-concluir').addEventListener('click', () => {
+                    const resultado = ArmazenamentoDados.concluirMeta(meta.id);
+                    if (resultado.sucesso) {
+                        Notificacoes.sucesso('Meta concluída!');
+                        atualizarMetas();
+                        window.atualizarDistribuicao();
+                    } else {
+                        Notificacoes.erro(resultado.erro);
+                    }
+                });
+                
+                li.querySelector('.btn-excluir').addEventListener('click', () => {
+                    if (confirm('Tem certeza que deseja excluir esta meta?')) {
+                        const resultado = ArmazenamentoDados.excluirMeta(meta.id);
+                        if (resultado.sucesso) {
+                            Notificacoes.sucesso('Meta excluída');
+                            atualizarMetas();
+                            window.atualizarDistribuicao();
+                        } else {
+                            Notificacoes.erro(resultado.erro);
+                        }
+                    }
+                });
+                
                 listaPendentes.appendChild(li);
             });
         }
         
+        // Renderizar metas concluídas
         if (metasConcluidas.length === 0) {
             listaConcluidas.innerHTML = '<p class="sem-dados">Nenhuma meta concluída</p>';
         } else {
@@ -407,104 +487,111 @@ document.addEventListener('DOMContentLoaded', function() {
                     <div>
                         <strong><s>${meta.descricao}</s></strong>
                         <div class="meta-info">
-                            <span class="meta-categoria"><i class="fas fa-tag"></i> ${formatarCategoria(meta.categoria)}</span>
-                            ${meta.dataLimite ? `<span class="meta-data"><i class="fas fa-calendar"></i> ${formatarData(meta.dataLimite)}</span>` : ''}
+                            <span class="meta-categoria">
+                                <i class="fas fa-tag"></i> 
+                                ${Utils.formatarCategoria(meta.categoria, 'metas')}
+                            </span>
+                            ${meta.dataLimite ? `
+                                <span class="meta-data">
+                                    <i class="fas fa-calendar"></i> 
+                                    ${Utils.formatarData(meta.dataLimite)}
+                                </span>
+                            ` : ''}
                         </div>
                     </div>
-                    <button class="btn-excluir" data-id="${meta.id}" title="Excluir"><i class="fas fa-trash"></i></button>
+                    <button class="btn-excluir" title="Excluir meta">
+                        <i class="fas fa-trash"></i>
+                    </button>
                 `;
+                
+                li.querySelector('.btn-excluir').addEventListener('click', () => {
+                    if (confirm('Tem certeza que deseja excluir esta meta?')) {
+                        const resultado = ArmazenamentoDados.excluirMeta(meta.id);
+                        if (resultado.sucesso) {
+                            Notificacoes.sucesso('Meta excluída');
+                            atualizarMetas();
+                            window.atualizarDistribuicao();
+                        } else {
+                            Notificacoes.erro(resultado.erro);
+                        }
+                    }
+                });
+                
                 listaConcluidas.appendChild(li);
             });
         }
+    }
+    
+    // ===== ATUALIZAÇÃO DE ALIMENTOS =====
+    function atualizarListaAlimentos() {
+        const listaAlimentos = document.getElementById('lista-alimentos');
+        if (!listaAlimentos) return;
         
-        document.querySelectorAll('.btn-concluir').forEach(btn => {
-            btn.addEventListener('click', function() {
-                const id = parseInt(this.getAttribute('data-id'));
-                concluirMeta(id);
+        const categoria = document.getElementById('filtro-alimento')?.value || '';
+        const alimentos = ArmazenamentoDados.obterAlimentos(categoria);
+        
+        listaAlimentos.innerHTML = '';
+        
+        if (alimentos.length === 0) {
+            listaAlimentos.innerHTML = `
+                <div class="sem-dados">
+                    <i class="fas fa-apple-alt"></i>
+                    <p>Nenhum alimento registrado</p>
+                </div>
+            `;
+            return;
+        }
+        
+        alimentos.forEach(alimento => {
+            const indiceGlicemico = alimento.indiceGlicemico || (
+                Number(alimento.carboidratos) >= 30 ? 'Alto' : Number(alimento.carboidratos) > 0 ? 'Baixo-Médio' : 'Médio'
+            );
+            const corIndice = indiceGlicemico.toLowerCase().includes('baixo')
+                ? '#2ecc71'
+                : indiceGlicemico.toLowerCase().includes('alto')
+                    ? '#e74c3c'
+                    : '#f39c12';
+
+            const item = document.createElement('div');
+            item.className = 'alimento-item';
+            item.innerHTML = `
+                <div class="alimento-info">
+                    <strong>${alimento.nome}</strong>
+                    <div class="alimento-detalhes">
+                        <span><i class="fas fa-weight"></i> ${alimento.quantidade}g</span>
+                        <span><i class="fas fa-bread-slice"></i> ${alimento.carboidratos}g carb.</span>
+                        <span><i class="fas fa-tag"></i> ${Utils.formatarCategoria(alimento.categoria, 'alimentos')}</span>
+                        <span class="alimento-indice" style="background:${corIndice};color:#fff;border-radius:12px;padding:2px 8px;"><i class="fas fa-heartbeat"></i> ${indiceGlicemico}</span>
+                        <span><i class="fas fa-calendar-alt"></i> ${Utils.formatarData(alimento.data)} ${alimento.hora}</span>
+                    </div>
+                    ${alimento.observacao ? `<p class="alimento-obs">${alimento.observacao}</p>` : ''}
+                </div>
+                <button class="btn-excluir" title="Excluir alimento">
+                    <i class="fas fa-trash"></i>
+                </button>
+            `;
+            
+            item.querySelector('.btn-excluir').addEventListener('click', () => {
+                if (confirm('Tem certeza que deseja excluir este alimento?')) {
+                    const resultado = ArmazenamentoDados.excluirAlimento(alimento.id);
+                    if (resultado.sucesso) {
+                        Notificacoes.sucesso('Alimento excluído');
+                        atualizarListaAlimentos();
+                        window.atualizarDistribuicao();
+                    } else {
+                        Notificacoes.erro(resultado.erro);
+                    }
+                }
             });
-        });
-        
-        document.querySelectorAll('.btn-excluir').forEach(btn => {
-            btn.addEventListener('click', function() {
-                const id = parseInt(this.getAttribute('data-id'));
-                excluirMeta(id);
-            });
+            
+            listaAlimentos.appendChild(item);
         });
     }
     
-    // ===== FUNÇÕES AUXILIARES =====
-    function formatarData(data) {
-        if (!data) return '';
-        const [ano, mes, dia] = data.split('-');
-        return `${dia}/${mes}/${ano}`;
-    }
-    
-    function formatarCategoria(categoria) {
-        const categorias = {
-            'exercicio': 'Exercício',
-            'alimentacao': 'Alimentação',
-            'medicacao': 'Medicação',
-            'controle': 'Controle'
-        };
-        return categorias[categoria] || categoria;
-    }
-    
-    function excluirRegistroGlicemia(id) {
-        if (confirm('Tem certeza que deseja excluir este registro?')) {
-            window.dados.glicemias = window.dados.glicemias.filter(g => g.id !== id);
-            salvarDados();
-            atualizarHistorico();
-            if (window.atualizarGrafico) atualizarGrafico();
-            mostrarNotificacao('Registro excluído com sucesso', 'sucesso');
-        }
-    }
-    
-    function concluirMeta(id) {
-        const meta = window.dados.metas.find(m => m.id === id);
-        if (meta) {
-            meta.concluida = true;
-            meta.dataConclusao = new Date().toISOString().split('T')[0];
-            salvarDados();
-            atualizarMetas();
-            mostrarNotificacao('Meta concluída!', 'sucesso');
-        }
-    }
-    
-    function excluirMeta(id) {
-        if (confirm('Tem certeza que deseja excluir esta meta?')) {
-            window.dados.metas = window.dados.metas.filter(m => m.id !== id);
-            salvarDados();
-            atualizarMetas();
-            mostrarNotificacao('Meta excluída', 'sucesso');
-        }
-    }
-    
-    // ===== NOTIFICAÇÕES =====
-    function mostrarNotificacao(mensagem, tipo) {
-        const notificacao = document.createElement('div');
-        notificacao.className = `notificacao notificacao-${tipo}`;
-        notificacao.style.cssText = `
-            position: fixed;
-            bottom: 20px;
-            right: 20px;
-            background: ${tipo === 'sucesso' ? '#2ecc71' : tipo === 'erro' ? '#e74c3c' : '#3498db'};
-            color: white;
-            padding: 12px 24px;
-            border-radius: 8px;
-            z-index: 10000;
-            animation: slideIn 0.3s ease;
-        `;
-        notificacao.innerHTML = `<i class="fas fa-${tipo === 'sucesso' ? 'check-circle' : tipo === 'erro' ? 'exclamation-circle' : 'info-circle'}"></i> ${mensagem}`;
-        document.body.appendChild(notificacao);
-        
-        setTimeout(() => {
-            notificacao.style.animation = 'slideOut 0.3s ease';
-            setTimeout(() => notificacao.remove(), 300);
-        }, 3000);
-    }
-    
-    // ===== DADOS DEMO =====
+    // ===== DADOS DE DEMONSTRAÇÃO =====
     function adicionarDadosDemo() {
+        console.log('📊 Carregando dados de demonstração...');
+        
         const hoje = new Date();
         const datas = [];
         for (let i = 6; i >= 0; i--) {
@@ -537,59 +624,61 @@ document.addEventListener('DOMContentLoaded', function() {
             { glicemia: 108, data: datas[6], hora: '18:15', observacao: 'Antes do jantar' }
         ];
         
-        dadosDemo.forEach((dado, index) => {
-            let status = '', statusClass = '';
-            if (dado.glicemia < 70) { status = 'Baixa'; statusClass = 'baixa'; }
-            else if (dado.glicemia <= 180) { status = 'Normal'; statusClass = 'normal'; }
-            else if (dado.glicemia <= 250) { status = 'Alta'; statusClass = 'alta'; }
-            else { status = 'Muito Alta'; statusClass = 'muito-alta'; }
-            
-            window.dados.glicemias.push({
-                id: Date.now() + index,
-                glicemia: dado.glicemia,
-                data: dado.data,
-                hora: dado.hora,
-                observacao: dado.observacao,
-                status: status,
-                statusClass: statusClass,
-                timestamp: new Date(`${dado.data}T${dado.hora}`).getTime()
-            });
+        dadosDemo.forEach(dado => {
+            ArmazenamentoDados.adicionarGlicemia(dado);
         });
         
+        // Metas de demonstração
         const metasDemo = [
-            { descricao: 'Caminhar 30 minutos por dia', categoria: 'exercicio', dataLimite: new Date(Date.now() + 7*24*60*60*1000).toISOString().split('T')[0], concluida: false },
-            { descricao: 'Reduzir consumo de açúcar', categoria: 'alimentacao', dataLimite: new Date(Date.now() + 14*24*60*60*1000).toISOString().split('T')[0], concluida: true },
-            { descricao: 'Tomar medicação corretamente', categoria: 'medicacao', dataLimite: new Date(Date.now() + 30*24*60*60*1000).toISOString().split('T')[0], concluida: false }
+            { 
+                descricao: 'Caminhar 30 minutos por dia', 
+                categoria: 'exercicio', 
+                dataLimite: new Date(Date.now() + 7*24*60*60*1000).toISOString().split('T')[0],
+                concluida: false 
+            },
+            { 
+                descricao: 'Reduzir consumo de açúcar', 
+                categoria: 'alimentacao', 
+                dataLimite: new Date(Date.now() + 14*24*60*60*1000).toISOString().split('T')[0],
+                concluida: true 
+            },
+            { 
+                descricao: 'Tomar medicação corretamente', 
+                categoria: 'medicacao', 
+                dataLimite: new Date(Date.now() + 30*24*60*60*1000).toISOString().split('T')[0],
+                concluida: false 
+            }
         ];
         
-        metasDemo.forEach((meta, index) => {
-            window.dados.metas.push({
-                id: Date.now() + 1000 + index,
-                descricao: meta.descricao,
-                categoria: meta.categoria,
-                dataLimite: meta.dataLimite,
-                concluida: meta.concluida,
-                dataCriacao: new Date(Date.now() - (index+1)*2*24*60*60*1000).toISOString().split('T')[0]
-            });
+        metasDemo.forEach(meta => {
+            ArmazenamentoDados.adicionarMeta(meta);
         });
         
-        salvarDados();
         atualizarHistorico();
         atualizarMetas();
-        console.log('Dados demo adicionados');
+        atualizarGrafico();
+        window.atualizarDistribuicao();
+        console.log('✅ Dados de demonstração carregados');
     }
 });
 
-// Adicionar animações CSS
-const styleAnimations = document.createElement('style');
-styleAnimations.textContent = `
+// Adicionar estilos de animação
+const styleAnimacoes = document.createElement('style');
+styleAnimacoes.textContent = `
     @keyframes slideIn {
-        from { transform: translateX(100%); opacity: 0; }
-        to { transform: translateX(0); opacity: 1; }
+        from { 
+            transform: translateY(20px); 
+            opacity: 0; 
+        }
+        to { 
+            transform: translateY(0); 
+            opacity: 1; 
+        }
     }
-    @keyframes slideOut {
-        from { transform: translateX(0); opacity: 1; }
-        to { transform: translateX(100%); opacity: 0; }
+    
+    @keyframes fadeIn {
+        from { opacity: 0; }
+        to { opacity: 1; }
     }
 `;
-document.head.appendChild(styleAnimations);
+document.head.appendChild(styleAnimacoes);

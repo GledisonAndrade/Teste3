@@ -266,6 +266,28 @@ class RelatoriosSistema {
         }
         return idade;
     }
+    
+    calcularDadosPizza(dados) {
+        const base = Array.isArray(dados) ? dados : [];
+        
+        const resultado = {
+            hipoglicemias: 0,
+            normais: 0,
+            hiperglicemias: 0,
+            total: base.length
+        };
+        
+        base.forEach(registro => {
+            const glicemia = Number(registro.glicemia);
+            if (Number.isNaN(glicemia)) return;
+            
+            if (glicemia < 70) resultado.hipoglicemias++;
+            else if (glicemia <= 180) resultado.normais++;
+            else resultado.hiperglicemias++;
+        });
+        
+        return resultado;
+    }
 
     gerarHTMLRelatorioFinal(inicio, fim, dados, stats, tendencia, horarios) {
         const hoje = new Date().toLocaleDateString('pt-BR');
@@ -279,8 +301,11 @@ class RelatoriosSistema {
         
         const corTendencia = tendencia.direcao === 'crescendo' ? '#e74c3c' : (tendencia.direcao === 'diminuindo' ? '#3498db' : '#95a5a6');
         
+        // Dados da distribuição no mesmo período do relatório
+        const dadosPizza = this.calcularDadosPizza(dados);
+        
         return `
-        <div id="conteudo-pdf" style="font-family: Arial, Helvetica, sans-serif; width: 800px; margin: 0 auto; background: #ffffff; padding: 20px; box-sizing: border-box;">
+        <div id="conteudo-pdf" style="font-family: Arial, Helvetica, sans-serif; width: 800px; margin: 0 auto; background: #ffffff; color: #1f2937; padding: 20px; box-sizing: border-box; border-radius: 14px; box-shadow: 0 10px 22px rgba(15, 23, 42, 0.08);">
             
             <!-- CABEÇALHO -->
             <div style="margin-bottom: 20px; border-bottom: 2px solid #4361ee; padding-bottom: 15px;">
@@ -336,7 +361,7 @@ class RelatoriosSistema {
                 </div>
             </div>
             
-            <!-- GRÁFICO -->
+            <!-- GRÁFICO LINHA -->
             <div style="margin-bottom: 25px; padding: 15px; background: #f8f9fa; border-radius: 10px; border: 1px solid #ddd;">
                 <h3 style="margin: 0 0 15px 0; color: #2c3e50;">📊 Evolução Glicêmica</h3>
                 <div style="height: 280px;">
@@ -348,6 +373,35 @@ class RelatoriosSistema {
                     <div><span style="background: #e74c3c; display: inline-block; width: 10px; height: 10px; border-radius: 3px; margin-right: 5px;"></span> Hiperglicemia (>180)</div>
                 </div>
             </div>
+            
+            <!-- GRÁFICO PIZZA (DISTRIBUIÇÃO) -->
+            <div style="margin-bottom: 25px; padding: 15px; background: #f8f9fa; border-radius: 10px; border: 1px solid #ddd;">
+                <h3 style="margin: 0 0 15px 0; color: #2c3e50;">🍰 Distribuição de Glicemia</h3>
+                <div style="height: 250px;">
+                    <canvas id="grafico-pizza-relatorio" width="750" height="250" style="width: 100%; height: 100%; display: block;"></canvas>
+                </div>
+                <div style="margin-top: 15px; display: table; width: 100%;">
+                    <div style="display: table-row;">
+                        <div style="display: table-cell; width: 33%; text-align: center; padding: 8px;">
+                            <div style="font-size: 24px; font-weight: bold; color: #4cc9f0;">${dadosPizza.hipoglicemias}</div>
+                            <div style="font-size: 11px; color: #666;">Hipoglicemia</div>
+                            <div style="font-size: 10px; color: #999;">${dadosPizza.total > 0 ? ((dadosPizza.hipoglicemias / dadosPizza.total) * 100).toFixed(1) : 0}%</div>
+                        </div>
+                        <div style="display: table-cell; width: 33%; text-align: center; padding: 8px;">
+                            <div style="font-size: 24px; font-weight: bold; color: #2ecc71;">${dadosPizza.normais}</div>
+                            <div style="font-size: 11px; color: #666;">Normal</div>
+                            <div style="font-size: 10px; color: #999;">${dadosPizza.total > 0 ? ((dadosPizza.normais / dadosPizza.total) * 100).toFixed(1) : 0}%</div>
+                        </div>
+                        <div style="display: table-cell; width: 33%; text-align: center; padding: 8px;">
+                            <div style="font-size: 24px; font-weight: bold; color: #e74c3c;">${dadosPizza.hiperglicemias}</div>
+                            <div style="font-size: 11px; color: #666;">Hiperglicemia</div>
+                            <div style="font-size: 10px; color: #999;">${dadosPizza.total > 0 ? ((dadosPizza.hiperglicemias / dadosPizza.total) * 100).toFixed(1) : 0}%</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- ANÁLISE POR HORÁRIO -->
             
             <!-- ANÁLISE ESTATÍSTICA -->
             <div style="margin-bottom: 25px;">
@@ -550,6 +604,55 @@ class RelatoriosSistema {
                     x: { 
                         ticks: { maxRotation: 45, autoSkip: true, maxTicksLimit: 8, font: { size: 9 } },
                         grid: { display: false }
+                    }
+                }
+            }
+        });
+
+        // Renderizar gráfico de pizza também
+        this.renderizarGraficoPizza();
+    }
+
+    renderizarGraficoPizza() {
+        const canvas = document.getElementById('grafico-pizza-relatorio');
+        if (!canvas) return;
+
+        if (!this.relatorioAtual?.dados) return;
+        const dadosPizza = this.calcularDadosPizza(this.relatorioAtual.dados);
+
+        if (this.graficoPizzaRelatorio) this.graficoPizzaRelatorio.destroy();
+
+        this.graficoPizzaRelatorio = new Chart(canvas, {
+            type: 'doughnut',
+            data: {
+                labels: ['Hipoglicemia (<70)', 'Normal (70-180)', 'Hiperglicemia (>180)'],
+                datasets: [{
+                    data: [dadosPizza.hipoglicemias, dadosPizza.normais, dadosPizza.hiperglicemias],
+                    backgroundColor: ['#4cc9f0', '#2ecc71', '#e74c3c'],
+                    borderColor: ['#36a3d9', '#27a745', '#c0392b'],
+                    borderWidth: 2
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: {
+                    legend: {
+                        position: 'bottom',
+                        labels: {
+                            font: { size: 10, weight: 'bold' },
+                            padding: 10
+                        }
+                    },
+                    tooltip: {
+                        callbacks: {
+                            label: function(context) {
+                                const value = context.parsed || 0;
+                                const total = context.dataset.data.reduce((a, b) => a + b, 0);
+                                const percentage = total > 0 ? ((value / total) * 100).toFixed(1) : 0;
+                                return ` ${value} registros (${percentage}%)`;
+                            }
+                        }
                     }
                 }
             }
@@ -910,6 +1013,7 @@ class RelatoriosSistema {
 let sistemaInicializado = false;
 document.addEventListener('DOMContentLoaded', () => {
     window.relatorioSistema = new RelatoriosSistema();
+    window.relatoriosSistema = window.relatorioSistema;
     
     const iniciarSistema = () => {
         if (!sistemaInicializado && document.getElementById('relatorio')?.classList.contains('ativa')) {

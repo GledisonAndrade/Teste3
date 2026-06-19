@@ -8,20 +8,33 @@
     <link rel="icon" type="image/x-icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>❤️</text></svg>">
     <link rel="apple-touch-icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>❤️</text></svg>">
     <meta name="theme-color" content="#4361ee">
+    <meta name="description" content="DiabetesCare - Sistema inteligente de monitoramento de glicemia">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="apple-mobile-web-app-title" content="DiabetesCare">
+    <link rel="manifest" href="manifest.json">
     
     <!-- CSS -->
+    <link rel="stylesheet" href="css/app-design.css">
     <link rel="stylesheet" href="css/graficos.css">
     <link rel="stylesheet" href="css/style.css">
     <link rel="stylesheet" href="css/temas.css">
     <link rel="stylesheet" href="css/profissional.css">
+    <link rel="stylesheet" href="css/aprimoramentos.css">
     
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
     
-    <!-- BIBLIOTECAS OBRIGATÓRIAS (corrigido: html2canvas no lugar certo) -->
+    <!-- BIBLIOTECAS OBRIGATÓRIAS -->
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+    
+    <!-- MÓDULOS DE SISTEMA (ORDEM IMPORTANTE) -->
+    <script src="js/config.js"></script>
+    <script src="js/utils.js"></script>
+    <script src="js/notificacoes.js"></script>
+    <script src="js/armazenamento.js"></script>
     
     <style>
         .logo-img {
@@ -63,6 +76,7 @@
                     <li><a href="#" data-section="registro" class="nav-link active"><i class="fas fa-edit"></i> <span class="nav-text">Registrar</span></a></li>
                     <li><a href="#" data-section="historico" class="nav-link"><i class="fas fa-history"></i> <span class="nav-text">Histórico</span></a></li>
                     <li><a href="#" data-section="grafico" class="nav-link"><i class="fas fa-chart-line"></i> <span class="nav-text">Gráficos</span></a></li>
+                    <li><a href="#" data-section="pizza" class="nav-link"><i class="fas fa-chart-pie"></i> <span class="nav-text">Distribuição</span></a></li>
                     <li><a href="#" data-section="metas" class="nav-link"><i class="fas fa-bullseye"></i> <span class="nav-text">Metas</span></a></li>
                     <li><a href="#" data-section="alimentos" class="nav-link"><i class="fas fa-apple-alt"></i> <span class="nav-text">Alimentos</span></a></li>
                     <li><a href="#" data-section="indice" class="nav-link"><i class="fas fa-calculator"></i> <span class="nav-text">Índice</span></a></li>
@@ -141,6 +155,22 @@
             </div>
         </section>
 
+        <!-- SEÇÃO PIZZA (DISTRIBUIÇÃO) -->
+        <section id="pizza" class="secao">
+            <div class="section-header"><h2><i class="fas fa-chart-pie"></i> Distribuição de Glicemia</h2><p>Visualize glicemia, metas (alcançadas/pendentes) e alimentos bons/ruins no mesmo painel</p></div>
+            <div class="card">
+                <div class="grafico-controls">
+                    <div class="form-group"><label for="periodo-pizza">Período:</label><select id="periodo-pizza"><option value="7">7 dias</option><option value="14">14 dias</option><option value="30" selected>30 dias</option><option value="90">90 dias</option><option value="personalizado">Personalizado</option></select></div>
+                    <div id="periodo-personalizado-pizza" class="periodo-personalizado" style="display:none;"><div class="form-row"><div class="form-group"><label for="pizza-inicio">De:</label><input type="date" id="pizza-inicio"></div><div class="form-group"><label for="pizza-fim">Até:</label><input type="date" id="pizza-fim"></div></div></div>
+                </div>
+                <div class="grafico-container pizza-container">
+                    <canvas id="grafico-pizza"></canvas>
+                </div>
+                <div id="pizza-legenda" class="pizza-legenda"></div>
+                <div id="pizza-resumo" class="pizza-resumo"></div>
+            </div>
+        </section>
+
         <!-- SEÇÃO METAS -->
         <section id="metas" class="secao">
             <div class="section-header"><h2><i class="fas fa-bullseye"></i> Metas de Tratamento</h2><p>Defina e acompanhe suas metas de controle</p></div>
@@ -175,8 +205,8 @@
         <!-- SEÇÃO ÍNDICE GLICÊMICO -->
         <section id="indice" class="secao">
             <div class="section-header"><h2><i class="fas fa-chart-bar"></i> Índice Glicêmico</h2><p>Calcule e analise seu controle glicêmico</p></div>
-            <div class="card"><div class="form-row"><div class="form-group"><label for="filtro-periodo-indice">Período rápido:</label><select id="filtro-periodo-indice"><option value="7">7 dias</option><option value="14">14 dias</option><option value="30" selected>30 dias</option><option value="60">60 dias</option><option value="90">90 dias</option></select></div></div>
-            <form id="form-indice" class="form-simples"><div class="form-row"><div class="form-group"><label for="indice-inicio">Data Inicial:</label><input type="date" id="indice-inicio" required></div><div class="form-group"><label for="indice-fim">Data Final:</label><input type="date" id="indice-fim" required></div></div><button type="submit" class="btn btn-primary"><i class="fas fa-calculator"></i> Calcular Índice Personalizado</button></form></div>
+            <div class="card"><div class="form-row"><div class="form-group"><label for="filtro-periodo-indice">Período:</label><select id="filtro-periodo-indice"><option value="7">7 dias</option><option value="14">14 dias</option><option value="30" selected>30 dias</option><option value="60">60 dias</option><option value="90">90 dias</option><option value="personalizado">Personalizado</option></select></div></div>
+            <form id="form-indice" class="form-simples"><div id="periodo-indice-personalizado" class="form-row" style="display:none;"><div class="form-group"><label for="indice-inicio">Data Inicial:</label><input type="date" id="indice-inicio"></div><div class="form-group"><label for="indice-fim">Data Final:</label><input type="date" id="indice-fim"></div></div><button type="submit" id="btn-calcular-indice" class="btn btn-primary" style="display:none;"><i class="fas fa-calculator"></i> Calcular Índice Personalizado</button></form></div>
             <div id="resultado-indice" class="card"><div class="loading"><i class="fas fa-spinner fa-spin"></i><p>Calculando índices...</p></div></div>
         </section>
 
@@ -236,8 +266,21 @@
     <script src="js/temas.js"></script>
     <script src="js/script.js"></script>
     <script src="js/graficos.js"></script>
+    <script src="js/pizza.js"></script>
     <script src="js/relatorios.js"></script>
     <script src="js/indice.js"></script>
     <script src="js/alimentos.js"></script>
+    <script src="js/testes.js"></script>
+    <script src="js/debug.js"></script>
+    <script>
+        // Registrar Service Worker para PWA
+        if ('serviceWorker' in navigator) {
+            window.addEventListener('load', () => {
+                navigator.serviceWorker.register('sw.js')
+                    .then(reg => console.log('✅ Service Worker registrado'))
+                    .catch(err => console.log('⚠️ Erro ao registrar Service Worker:', err));
+            });
+        }
+    </script>
 </body>
 </html>
